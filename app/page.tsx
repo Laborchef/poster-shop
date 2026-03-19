@@ -1,19 +1,40 @@
-import { Button } from "@/components/ui/button"
+import { ProductCard } from '@/components/shop/product-card'
+import { createClient } from '@/lib/supabase/server'
 
-export default function Page() {
+async function getProducts() {
+  const supabase = await createClient()
+  
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .order('base_price_cents')
+  
+  if (error) throw error
+  return products || []
+}
+
+export default async function ShopPage() {
+  const products = await getProducts()
+  
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
+    <div className="container mx-auto py-12 px-4">
+      <h1 className="text-4xl font-bold mb-4">Poster Shop</h1>
+      <p className="text-muted-foreground mb-8 text-lg">
+        Wählen Sie ein Format und erstellen Sie Ihr individuelles Poster
+      </p>
+      
+      {products.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Keine Produkte verfügbar. Bitte später wiederkommen.
         </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
