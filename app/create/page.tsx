@@ -15,7 +15,9 @@ function CreateContent() {
   const [product, setProduct] = useState<any>(null)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
+  const [generatedImages, setGeneratedImages] = useState<string[]>([])
+  const [generationId, setGenerationId] = useState<string | null>(null)
+  const [error, setError] = useState('')
   const supabase = createClient()
   
   useEffect(() => {
@@ -30,11 +32,56 @@ function CreateContent() {
     }
   }, [productId])
   
+  // Poll for generation status
+  useEffect(() => {
+    if (!generationId) return
+    
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from('ai_generations')
+        .select('status, output_url')
+        .eq('id', generationId)
+        .single()
+      
+      if (data?.status === 'completed' && data.output_url) {
+        setGeneratedImages([data.output_url])
+        setGenerating(false)
+        setGenerationId(null)
+        clearInterval(interval)
+      } else if (data?.status === 'failed') {
+        setError('Generierung fehlgeschlagen. Bitte erneut versuchen.')
+        setGenerating(false)
+        setGenerationId(null)
+        clearInterval(interval)
+      }
+    }, 3000)
+    
+    return () => clearInterval(interval)
+  }, [generationId])
+  
   const handleGenerate = async () => {
-    if (!prompt.trim()) return
+    if (!prompt.trim() || !productId) return
     setGenerating(true)
-    // TODO: Call AI generation API
-    setTimeout(() => setGenerating(false), 2000)
+    setError('')
+    
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, productId }),
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Generierung fehlgeschlagen')
+      }
+      
+      setGenerationId(data.generationId)
+    } catch (err: any) {
+      setError(err.message)
+      setGenerating(false)
+    }
   }
   
   if (loading) return <div className="container mx-auto py-12">Laden...</div>
@@ -82,8 +129,29 @@ Beispiel: Ein majestätischer Adler, der über verschneite Berggipfel fliegt, go
           </div>
           
           <p className="text-xs text-muted-foreground">
-            Die Generierung dauert ca. 10-30 Sekunden. Sie erhalten 3 Varianten zur Auswahl.
+            Die Generierung dauert ca. 10-30 Sekunden. Sie erhalten 1 Bild zur Auswahl.
           </p>
+          
+          {error && (
+            <div className="bg-red-100 text-red-800 p-3 rounded text-sm">{error}</div>
+          )}
+          
+          {generatedImages.length > 0 && (
+            <div className="space-y-4">
+              <p className="font-medium">Generiertes Bild:</p>
+              {generatedImages.map((url, i) => (
+                <div key={i} className="border rounded-lg overflow-hidden">
+                  <img src={url} alt={`Generated ${i + 1}`} className="w-full" />
+                </div>
+              ))}
+              <Button 
+                className="w-full"
+                onClick={() => {/* TODO: Continue to checkout */}}
+              >
+                Mit diesem Bild fortfahren
+              </Button>
+            </div>
+          )}
         </div>
         
         <div>
