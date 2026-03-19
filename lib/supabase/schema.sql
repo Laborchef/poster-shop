@@ -134,6 +134,20 @@ CREATE TABLE printer_status (
 -- Create index for latest status lookup
 CREATE INDEX idx_printer_status_polled_at ON printer_status(polled_at DESC);
 
+-- Newsletter Subscribers
+CREATE TABLE newsletter_subscribers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  first_name TEXT,
+  subscribed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
+  is_active BOOLEAN DEFAULT true,
+  source TEXT DEFAULT 'website',
+  tags TEXT[] DEFAULT '{}'
+);
+
+CREATE INDEX idx_newsletter_active ON newsletter_subscribers(is_active, subscribed_at DESC);
+
 -- RLS Policies
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
